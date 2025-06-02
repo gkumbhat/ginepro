@@ -9,12 +9,13 @@ use anyhow::Context as _;
 use http::Request;
 use std::{
     convert::TryInto,
+    net::SocketAddr,
     task::{Context, Poll},
 };
 use tokio::time::Duration;
-use tonic::client::GrpcService;
 use tonic::transport::channel::Channel;
-use tonic::{body::BoxBody, transport::ClientTlsConfig};
+use tonic::transport::ClientTlsConfig;
+use tonic::{body::Body, client::GrpcService};
 use tower::Service;
 
 // Determines the channel size of the channel we use
@@ -69,16 +70,16 @@ impl LoadBalancedChannel {
     }
 }
 
-impl Service<http::Request<BoxBody>> for LoadBalancedChannel {
-    type Response = http::Response<<Channel as GrpcService<BoxBody>>::ResponseBody>;
-    type Error = <Channel as GrpcService<BoxBody>>::Error;
-    type Future = <Channel as GrpcService<BoxBody>>::Future;
+impl Service<http::Request<Body>> for LoadBalancedChannel {
+    type Response = http::Response<<Channel as GrpcService<Body>>::ResponseBody>;
+    type Error = <Channel as GrpcService<Body>>::Error;
+    type Future = <Channel as GrpcService<Body>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         GrpcService::poll_ready(&mut self.0, cx)
     }
 
-    fn call(&mut self, request: Request<BoxBody>) -> Self::Future {
+    fn call(&mut self, request: Request<Body>) -> Self::Future {
         GrpcService::call(&mut self.0, request)
     }
 }
@@ -189,7 +190,10 @@ where
     /// Set the maximum time client should wait for idle keep-alive connections
     ///
     /// Uses hyper’s default otherwise.
-    pub fn keep_alive_timeout(self, keep_alive_timeout: Duration) -> LoadBalancedChannelBuilder<T, S> {
+    pub fn keep_alive_timeout(
+        self,
+        keep_alive_timeout: Duration,
+    ) -> LoadBalancedChannelBuilder<T, S> {
         Self {
             keep_alive_timeout: Some(keep_alive_timeout),
             ..self
@@ -199,7 +203,10 @@ where
     /// Set http2 KEEP_ALIVE_INTERVAL
     ///
     /// Uses hyper’s default otherwise.
-    pub fn http2_keep_alive_interval(self, http2_keep_alive_interval: Duration) -> LoadBalancedChannelBuilder<T, S> {
+    pub fn http2_keep_alive_interval(
+        self,
+        http2_keep_alive_interval: Duration,
+    ) -> LoadBalancedChannelBuilder<T, S> {
         Self {
             http2_keep_alive_interval: Some(http2_keep_alive_interval),
             ..self
@@ -209,9 +216,12 @@ where
     /// Set http2 KEEP_ALIVE_WHILE_IDLE
     ///
     /// Uses hyper’s default otherwise.
-    pub fn keep_alive_while_idle(self, keep_alive_while_idle: bool) -> LoadBalancedChannelBuilder<T, S> {
+    pub fn keep_alive_while_idle(
+        self,
+        keep_alive_while_idle: bool,
+    ) -> LoadBalancedChannelBuilder<T, S> {
         Self {
-            keep_alive_while_idle: keep_alive_while_idle,
+            keep_alive_while_idle,
             ..self
         }
     }
@@ -259,7 +269,8 @@ where
     where
         U: LookupService + Send + Sync + 'static + Sized,
     {
-        let (channel, sender) = Channel::balance_channel(GRPC_REPORT_ENDPOINTS_CHANNEL_SIZE);
+        let (channel, sender) =
+            Channel::balance_channel::<SocketAddr>(GRPC_REPORT_ENDPOINTS_CHANNEL_SIZE);
 
         let config = GrpcServiceProbeConfig {
             service_definition: self

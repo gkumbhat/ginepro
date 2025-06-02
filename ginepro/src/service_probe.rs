@@ -3,8 +3,10 @@ use std::collections::HashSet;
 use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
 use tokio::time::Duration;
-use tonic::transport::{channel::Endpoint, ClientTlsConfig};
-use tower::discover::Change;
+use tonic::transport::{
+    channel::{Change, Endpoint},
+    ClientTlsConfig,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProbeError {
@@ -244,13 +246,13 @@ impl<Lookup: LookupService> GrpcServiceProbe<Lookup> {
         if let Some(ref connect_timeout) = self.endpoint_connect_timeout {
             endpoint = endpoint.connect_timeout(*connect_timeout)
         }
-        if let Some(ref timeout) = self.keep_alive_timeout{
+        if let Some(ref timeout) = self.keep_alive_timeout {
             endpoint = endpoint.keep_alive_timeout(*timeout);
         }
-        if let Some(ref inteval) = self.http2_keep_alive_interval{
+        if let Some(ref inteval) = self.http2_keep_alive_interval {
             endpoint = endpoint.http2_keep_alive_interval(*inteval);
         }
-        if self.keep_alive_while_idle{
+        if self.keep_alive_while_idle {
             endpoint = endpoint.keep_alive_while_idle(true);
         }
 
