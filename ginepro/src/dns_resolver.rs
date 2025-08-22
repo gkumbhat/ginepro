@@ -2,7 +2,8 @@
 
 use crate::{LookupService, ServiceDefinition};
 use anyhow::Context;
-use hickory_resolver::{system_conf, AsyncResolver, TokioAsyncResolver};
+use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::{system_conf, Resolver, TokioResolver};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 
@@ -10,7 +11,7 @@ use std::net::SocketAddr;
 pub struct DnsResolver {
     /// The trust-dns resolver which contacts the dns service directly such
     /// that we bypass os-specific dns caching.
-    dns: TokioAsyncResolver,
+    dns: TokioResolver,
 }
 
 impl DnsResolver {
@@ -22,7 +23,8 @@ impl DnsResolver {
         // We do not want any caching on our side.
         opts.cache_size = 0;
 
-        let dns = AsyncResolver::tokio(config, opts);
+        let dns = Resolver::builder_with_config(config, TokioConnectionProvider::default()).with_options(opts).build();
+
 
         Ok(Self { dns })
     }
